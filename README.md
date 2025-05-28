@@ -18,6 +18,12 @@ This scraper uses Node.js with Express and Puppeteer to:
 - Provides real-time progress updates during scraping
 - Simple web interface with intuitive start and download buttons
 
+## Requirements
+
+- Node.js v18+ (recommended: latest LTS)
+- Chrome or Chromium browser (Puppeteer will download a compatible version automatically, but you can use your system Chrome if preferred)
+- Internet connection (to access SportsLine and download dependencies)
+
 ## Installation
 
 1. Clone this repository
@@ -33,10 +39,25 @@ This scraper uses Node.js with Express and Puppeteer to:
 
 ## Usage
 
-1. Click the "Start Scraping" button
-2. Wait for the scraping process to complete (may take 5-10 minutes)
-3. Click the "Download CSV" button when it appears
-4. Find your CSV file in your downloads folder
+1. **Start the server:**
+   ```
+   node server.js
+   ```
+   The server will start on port 3001 by default.
+
+2. **Access the web interface:**
+   - Open your browser and go to: [http://localhost:3001](http://localhost:3001)
+
+3. **Start scraping:**
+   - Click the **Start Scraping** button in the UI.
+   - The app will show progress as it scrapes all MLB games for the day.
+
+4. **Download CSV:**
+   - Once scraping is complete, click the **Download CSV** button to save the results.
+   - The CSV will include all split types and stats for every game found.
+
+5. **CSV Output:**
+   - The file will be saved in the `/examples/` directory and available for download via the UI.
 
 ## CSV Structure
 
