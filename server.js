@@ -356,9 +356,9 @@ async function scrapeGameSeasonSplitsWithSelectors(page, gameUrl, teams) {
       if (seasonSplitsSection) {
         console.log('Found Season Splits section, extracting with clean selectors...');
         
+        const pitcherElements = seasonSplitsSection.querySelectorAll('.sc-2d876bef-0.vVAPS');
         const percentageElements = seasonSplitsSection.querySelectorAll('.sc-2d876bef-0.jbGCWn');
         const recordPLElements = seasonSplitsSection.querySelectorAll('.sc-2d876bef-0.eoDCvc');
-        const pitcherElements = seasonSplitsSection.querySelectorAll('.sc-2d876bef-0.vVAPS');
         
         console.log(`Found ${percentageElements.length} percentage elements`);
         console.log(`Found ${recordPLElements.length} record+P/L elements`);
@@ -383,65 +383,49 @@ async function scrapeGameSeasonSplitsWithSelectors(page, gameUrl, teams) {
         };
         
         const pitcherNames = pitcherTexts
-          .map(extractPitcherName)
-          .filter(name => name !== null);
+        .map(extractPitcherName)
+        .filter(name => name !== null);
         
         console.log('Extracted pitcher names:', pitcherNames);
         
-        const splitTypes = [
-          { type: 'ALL', awayCategory: 'ALL GAMES', homeCategory: 'ALL GAMES' },
-          { type: 'LOCATION', awayCategory: 'ON ROAD', homeCategory: 'AT HOME' },
-          { type: 'STATUS', awayCategory: 'AS FAVORITE', homeCategory: 'AS UNDERDOG OR EVEN' },
-          { type: 'MONEY LINE', awayCategory: 'WHEN LINE WAS -182 TO -152', homeCategory: 'WHEN LINE WAS +126 TO +156' },
-          { type: 'LOCATION & STATUS', awayCategory: 'AS ROAD FAVORITE', homeCategory: 'AS HOME UNDERDOG' },
-          { type: 'OPP WIN%', awayCategory: 'VS TEAMS THAT WIN <46% OF GAMES', homeCategory: 'VS TEAMS THAT WIN >54% OF GAMES' },
-          { type: 'OPP DEFENSE', awayCategory: 'VS TEAMS ALLOWING >4.2 RUNS', homeCategory: 'VS TEAMS ALLOWING 3.0 TO 4.2 RUNS' },
-          { type: 'REST', awayCategory: '3RD GAME WITHOUT A DAY OFF', homeCategory: '3RD GAME WITHOUT A DAY OFF' },
-          { type: 'HEAD TO HEAD', awayCategory: `VS ${homeTeam}`, homeCategory: `VS ${awayTeam}` },
-          { type: 'PROJECTED STARTER', awayCategory: 'WHEN STARTER STARTS', homeCategory: 'WHEN STARTER STARTS' }
-        ];
-        
-        for (let i = 0; i < Math.min(splitTypes.length, Math.floor(percentages.length / 2), Math.floor(recordsAndPL.length / 2)); i++) {
-          const splitType = splitTypes[i];
-          
-          const awayPercentage = percentages[i * 2] || '0%';
-          const awayRecordPL = recordsAndPL[i * 2] || '0-0, +0';
-          
-          const homePercentage = percentages[i * 2 + 1] || '0%';
-          const homeRecordPL = recordsAndPL[i * 2 + 1] || '0-0, +0';
-          
+        const categoryElements = seasonSplitsSection.querySelectorAll('.sc-2d876bef-0.vVAPS');
+
+        // Find all split rows (each split row = 1 logical split)
+        const splitRows = seasonSplitsSection.querySelectorAll('.sc-8f3095e9-0.fWvXUD.sc-5b7e5402-6.begGYC');
+
+        // Only process the first 10 split rows (for the 10 splits)
+        for (let i = 0; i < 10 && i < splitRows.length; i++) {
+          const row = splitRows[i];
+          const vVAPS = row.querySelectorAll('.sc-2d876bef-0.vVAPS');
+          const awayCategory = vVAPS[0]?.textContent.trim() || '';
+          const splitType = vVAPS[1]?.textContent.trim() || '';
+          const homeCategory = vVAPS[2]?.textContent.trim() || '';
+
+          // Stats: Each split row has left (away) and right (home) stats in order
+          // Use the same index for stats as for split row
+          const awayPercentage = percentageElements[i * 2]?.textContent.trim() || '0%';
+          const awayRecordPL = recordPLElements[i * 2]?.textContent.trim() || '0-0, +0';
+          const homePercentage = percentageElements[i * 2 + 1]?.textContent.trim() || '0%';
+          const homeRecordPL = recordPLElements[i * 2 + 1]?.textContent.trim() || '0-0, +0';
+
           const parseRecordPL = (text) => {
-            console.log(`Parsing record/P/L from: "${text}"`);
             const match = text.match(/(\d+)-(\d+),\s*([+-]\d+)/);
             if (match) {
-              console.log(`Extracted: wins=${match[1]}, losses=${match[2]}, pl=${match[3]}`);
               return {
                 wins: match[1],
                 losses: match[2],
                 pl: match[3]
               };
             }
-            console.log('No match found, using defaults');
             return { wins: '0', losses: '0', pl: '+0' };
           };
-          
+
           const awayData = parseRecordPL(awayRecordPL);
           const homeData = parseRecordPL(homeRecordPL);
-          
-          let awayCategory = splitType.awayCategory;
-          let homeCategory = splitType.homeCategory;
-          
-          if (splitType.type === 'PROJECTED STARTER' && pitcherNames.length >= 2) {
-            awayCategory = `WHEN ${pitcherNames[0]} STARTS`;
-            homeCategory = `WHEN ${pitcherNames[1]} STARTS`;
-            
-            console.log(`Using pitcher names: Away="${awayCategory}", Home="${homeCategory}"`);
-          }
-          
-          console.log(`Creating entry with: awayWins=${awayData.wins}, awayLosses=${awayData.losses}`);
-          
+
           const entry = {
-            'Split Type': splitType.type,
+            'Game Date': new Date().toISOString().split('T')[0],
+            'Split Type': splitType,
             'Away Category': awayCategory,
             'Away Team': awayTeam,
             'Away Wins': awayData.wins,
@@ -455,11 +439,8 @@ async function scrapeGameSeasonSplitsWithSelectors(page, gameUrl, teams) {
             'Home Win %': homePercentage,
             'Home P/L': homeData.pl
           };
-          
-          console.log('Entry created:', entry);
-          
+
           data.push(entry);
-          console.log(`✅ Added ${splitType.type}:`, entry);
         }
       } else {
         console.log('❌ Could not find Season Splits section');
